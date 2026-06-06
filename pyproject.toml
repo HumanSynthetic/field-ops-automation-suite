@@ -1,0 +1,12 @@
+[project]
+name = "field-ops-automation-suite"
+version = "0.1.0"
+description = "Sanitized reconstruction of an operational automation and reporting system."
+requires-python = ">=3.10"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
