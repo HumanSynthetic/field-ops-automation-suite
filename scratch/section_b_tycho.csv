@@ -1,5 +1,5 @@
 Traceback (most recent call last):
-  File "<stdin>", line 9, in <module>
+  File "<stdin>", line 10, in <module>
   File "/usr/lib/python3.12/urllib/request.py", line 215, in urlopen
     return opener.open(url, data, timeout)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
