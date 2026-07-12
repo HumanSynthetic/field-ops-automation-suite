@@ -17,14 +17,43 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: tmp-lab8-pleiades-data-20260712
-      - name: Query Tycho-2 raw output
+      - name: Query and filter Tycho-2 Section B
         run: |
           python - <<'PY'
-          import urllib.parse, urllib.request, traceback
-          params={'-source':'I/259/tyc2','-c':'56.9 24.3','-c.rm':'72','-out':'TYC,RAdeg,DEdeg,VTmag,BTmag','-out.max':'unlimited'}
+          import urllib.parse, urllib.request, traceback, csv, io
+          params={'-source':'I/259/tyc2','-c':'56.9 24.3','-c.rm':'72','-out':'TYC1,TYC2,TYC3,RAmdeg,DEmdeg,VTmag,BTmag,HIP','-out.max':'unlimited'}
           url='https://vizier.cds.unistra.fr/viz-bin/asu-tsv?'+urllib.parse.urlencode(params)
-          try: data=urllib.request.urlopen(url,timeout=120).read()
-          except Exception: data=(traceback.format_exc()+'\nURL='+url).encode()
+          poly=[(57.5764,24.2902),(57.2354,24.7277),(56.5968,24.3203),(56.9377,23.8830)]
+          def inside(x,y):
+            c=False; j=len(poly)-1
+            for i in range(len(poly)):
+              xi,yi=poly[i]; xj,yj=poly[j]
+              if ((yi>y)!=(yj>y)) and (x < (xj-xi)*(y-yi)/(yj-yi+1e-30)+xi): c=not c
+              j=i
+            return c
+          try:
+            raw=urllib.request.urlopen(url,timeout=120).read().decode('utf-8','replace')
+            lines=[ln for ln in raw.splitlines() if ln and not ln.startswith('#')]
+            reader=csv.DictReader(io.StringIO('\n'.join(lines)),delimiter='\t')
+            out=[]
+            for r in reader:
+              try:
+                ra=float(r['RAmdeg']); dec=float(r['DEmdeg']); vt=float(r['VTmag']); bt=float(r['BTmag'])
+              except Exception: continue
+              if not inside(ra,dec): continue
+              d=bt-vt
+              # ESA Tycho-to-Johnson approximation used for ordinary stellar colours
+              v=vt-0.090*d
+              bv=0.850*d
+              tyc='{}-{}-{}'.format(r.get('TYC1','').strip(),r.get('TYC2','').strip(),r.get('TYC3','').strip())
+              out.append((v,bv,tyc,ra,dec,vt,bt,r.get('HIP','').strip()))
+            out.sort()
+            buf=io.StringIO(); w=csv.writer(buf); w.writerow(['TYC','HIP','RAdeg','DEdeg','VTmag','BTmag','V_Johnson','B-V_Johnson'])
+            for v,bv,tyc,ra,dec,vt,bt,hip in out:
+              w.writerow([tyc,hip,ra,dec,vt,bt,round(v,3),round(bv,3)])
+            data=buf.getvalue().encode()
+          except Exception:
+            data=(traceback.format_exc()+'\nURL='+url).encode()
           open('scratch/section_b_tycho.csv','wb').write(data)
           print(data.decode('utf-8','replace'))
           PY
@@ -33,5 +62,5 @@ jobs:
           git config user.name "Lab 8 temporary automation"
           git config user.email "actions@users.noreply.github.com"
           git add scratch/section_b_tycho.csv
-          git commit -m "Store temporary Tycho raw result" || exit 0
+          git commit -m "Store filtered Section B Tycho result" || exit 0
           git push
